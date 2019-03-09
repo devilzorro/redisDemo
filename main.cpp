@@ -25,6 +25,12 @@ CRedisClient redisClient;
 
 string str2010;
 string str2011;
+
+string strStartTime = "1";
+string strEndTime = "1";
+string programName = "test.iso";
+string toolNo = "12";
+
 vector<string> vcRedisList;
 
 string machineID = "lastMessage_iSC_00E04C68759B";
@@ -77,21 +83,32 @@ void write2010() {
 }
 
 void write2011() {
-    int count = 0;
-    int startTime = 1;
-    int endTime = 1;
-    string strStartTime = "";
-    string strEndTime = "";
-    stringstream ssStart;
-    stringstream ssEnd;
-    ssStart<<startTime;
-    ssStart>>strStartTime;
-    ssEnd<<endTime;
-    ssEnd>>strEndTime;
-    string tmp2011 = set2011("12","test.iso","false","1",strStartTime,strEndTime,"0");
+    string tmp2011 = set2011(toolNo,programName,"false","1",strStartTime,strEndTime,"0");
     redisClient.HSet(machineID,"2011",tmp2011);
     while (1) {
         cout<<"2011 thread:"<<this_thread::get_id()<<endl;
+        this_thread::sleep_for(chrono::milliseconds(25));
+
+        string tmpData = set2011(toolNo,programName,"false","1",strStartTime,strEndTime,"0");
+        cout<<tmpData<<endl;
+
+        string store2011 = "";
+        Json::Value root;
+        root["order"] = "2011";
+        root["content"] = tmpData;
+        vcRedisList.push_back(root.toStyledString());
+//        redisClient.HGet(machineID,"2011",store2011);
+//        redisClient.HSet(machineID,"2011",tmpData);
+    }
+}
+
+void changeTimePoint() {
+    int count = 0;
+    int startTime = 1;
+    int endTime = 1;
+    stringstream ssStart;
+    stringstream ssEnd;
+    while (1) {
         this_thread::sleep_for(chrono::seconds(20));
         if (count%2 == 0) {
             startTime++;
@@ -107,20 +124,37 @@ void write2011() {
             stringstream tmpss;
             tmpss<<endTime;
             tmpss>>strEndTime;
-        }
-        string tmpData = set2011("12","test.iso","false","1",strStartTime,strEndTime,"0");
-        cout<<tmpData<<endl;
 
-        string store2011 = "";
-        Json::Value root;
-        root["order"] = "2011";
-        root["content"] = tmpData;
-        vcRedisList.push_back(root.toStyledString());
-//        redisClient.HGet(machineID,"2011",store2011);
-//        redisClient.HSet(machineID,"2011",tmpData);
+            //change programName
+            this_thread::sleep_for(chrono::seconds(2));
+            string strCount;
+            stringstream sName;
+            sName<<count;
+            sName>>strCount;
+            programName = "test" + strCount + ".iso";
+        }
         count++;
     }
 }
+
+void changetoolNo() {
+    int itoolNo = 12;
+    while (1) {
+        this_thread::sleep_for(chrono::milliseconds(1000));
+        if ((itoolNo >= 12)&&(itoolNo <= 15)) {
+            itoolNo++;
+            stringstream ssToolNo;
+            ssToolNo<<itoolNo;
+            ssToolNo>>toolNo;
+        } else {
+            itoolNo = 12;
+        }
+    }
+}
+
+//void changeProgramName() {
+//
+//}
 
 void writeRedis() {
     while (1) {
@@ -157,9 +191,15 @@ int main() {
 
     thread th2010(write2010);
     thread th2011(write2011);
+    thread thChangeTimePoint(changeTimePoint);
+//    thread thChangeProName(changeProgramName);
+    thread thChangeToolNo(changetoolNo);
     thread thWriteRedis(writeRedis);
     th2010.detach();
     th2011.detach();
+//    thChangeProName.detach();
+    thChangeTimePoint.detach();
+    thChangeToolNo.detach();
     thWriteRedis.detach();
 
 
