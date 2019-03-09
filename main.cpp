@@ -3,15 +3,21 @@
 #include <thread>
 #include "json/json.h"
 #include "redisClient/redisClient.h"
-#include <Windows.h>
-#include "win_stdafx/stdafx.h"
+
 #include <sstream>
 #include <chrono>
 #include <ctype.h>
 #include <vector>
-#pragma comment(lib,"ws2_32.lib")
+
 
 #define random(x) (rand()%x)
+#ifdef WIN32
+#include <Windows.h>
+#include "win_stdafx/stdafx.h"
+#pragma comment(lib,"ws2_32.lib")
+#else
+
+#endif
 
 using namespace std;
 
