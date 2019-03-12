@@ -39,8 +39,11 @@ string set2010() {
     ss>>strVal;
     cout<<"tool test val:"<<strVal<<endl;
     root["cnc_rdspmeter[0]"] = strVal;
-    retData = root.toStyledString();
-
+    string tmpStr = root.toStyledString();
+    dataRoot["type"] = "2010";
+    dataRoot["val"] = tmpStr;
+    dataRoot["machineType"] = "fanuc";
+    retData = dataRoot.toStyledString();
     return retData;
 }
 
@@ -48,6 +51,7 @@ string set2011(string toolNo,string programName,
         string jobCountByStatus,string status,
         string startTime,string endTime,string resetStatus) {
     string retData = "";
+    Json::Value rootBase;
     Json::Value root;
     root["ext_toolno"] = toolNo;
     root["cnc_exeprgname"] = programName;
@@ -56,7 +60,11 @@ string set2011(string toolNo,string programName,
     root["programStartTime"] = startTime;
     root["programEndTime"] = endTime;
     root["pmc_rdpmcrng[1,1,1,1]"] = resetStatus;
-    retData = root.toStyledString();
+    string tmpStr = root.toStyledString();
+    rootBase["type"] = "2011";
+    rootBase["val"] = tmpStr;
+    rootBase["machineType"] = "fanuc";
+    retData = rootBase.toStyledString();
     return retData;
 }
 
