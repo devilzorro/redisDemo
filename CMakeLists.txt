@@ -31,7 +31,7 @@ if (UNIX)
     )
     message("on unix platfrom")
     add_executable(redisDemo ${source_files})
-    target_link_libraries(redisDemo hiredis pthread)
+    target_link_libraries(redisDemo libhiredis.a pthread)
 
 elseif(WIN32)
     message("on windows platfrom")
