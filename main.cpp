@@ -5,6 +5,7 @@
 #include "json/json.h"
 #include "redisClient/redisClient.h"
 #include <iomanip>
+#include <fstream>
 
 #include <sstream>
 #include <chrono>
@@ -41,6 +42,14 @@ string setVal2010= "";
 string setRpm = "";
 string set2010Order = "2010";
 
+int iLineNo = 0;
+
+string mainLineNo = "";
+
+ofstream fwriteFile;
+
+string writeFileName = "";
+
 string getSysTime(){
     //format: [s : ms]
     struct timeval tv;
@@ -49,6 +58,57 @@ string getSysTime(){
     sprintf(s,"%ld:%ld",tv.tv_sec,tv.tv_usec/1000);
     string str = s;
     return str;
+}
+
+//string getSysTime(){ //13位秒级系统时间
+//#ifdef WIN32
+//    return "";
+//#else
+//    //format: [s : ms]
+//    struct timeval tv;
+//    gettimeofday(&tv,NULL);
+//    char s[128] = "";
+//    int ms = tv.tv_usec/1000;
+//    string strMs;
+//    stringstream ssMs;
+//    ssMs<<ms;
+//    ssMs>>strMs;
+//    if (strMs.length() < 3) {
+//        if (strMs.length() == 1) {
+//            strMs = "00" + strMs;
+//        } else if(strMs.length() == 2) {
+//            strMs = "0" + strMs;
+//        } else {
+//            strMs = "000";
+//        }
+//    }
+//    sprintf(s,"%ld",tv.tv_sec);
+//    string tmpData = ":" + strMs;
+//    string str = s + tmpData;
+////    cout<<str.length()<<endl;
+//    return str;
+//#endif
+//}
+
+//int randEx()
+//{
+//    LARGE_INTEGER seed;
+//    QueryPerformanceFrequency(&seed);
+//    QueryPerformanceCounter(&seed);
+//    srand(seed.QuadPart);
+//
+//    return rand();
+//}
+
+int RandMe(int IntLS)
+{
+//IntLS为随机范围
+    int RandMeInt;
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    srand((unsigned)tv.tv_usec);
+    RandMeInt = rand() % IntLS;
+    return RandMeInt;
 }
 
 string set2010() {
@@ -60,6 +120,8 @@ string set2010() {
     string tmpSetRpm = "";
 //    ss<<random(100);
 //    ss>>strVal;
+
+    cout<<"*************rand:"<<RandMe(10)<<endl;
     if (setVal2010 != "") {
         strVal = setVal2010;
     }
@@ -67,8 +129,14 @@ string set2010() {
     if (setRpm != "") {
         tmpSetRpm = setRpm;
     }
+
+    int iRandLoad = RandMe(10);
+    stringstream ssRandLoad;
+    string strRandLoad;
+    ssRandLoad<<iRandLoad;
+    ssRandLoad>>strRandLoad;
     cout<<"tool test val:"<<strVal<<endl;
-    root["cnc_rdspmeter[0]"] = strVal;
+    root["cnc_rdspmeter[0]"] = strRandLoad;
     root["cnc_acts"] = tmpSetRpm;
     root["isesol_timeStamp"] = getSysTime();
     string tmpStr = root.toStyledString();
@@ -76,15 +144,36 @@ string set2010() {
     dataRoot["val"] = tmpStr;
     dataRoot["machineType"] = "fanuc";
     retData = dataRoot.toStyledString();
+
+    string tmpWriteData = retData + "\n";
+    fwriteFile.open(writeFileName,ios::app);
+    if (fwriteFile.is_open()) {
+        fwriteFile<<tmpWriteData;
+    }
+    fwriteFile.close();
     return retData;
 }
 
 string set2011(string toolNo,string programName,
         string jobCountByStatus,string status,
-        string startTime,string endTime,string resetStatus) {
+        string startTime,string endTime,string lineNo) {
     string retData = "";
     Json::Value rootBase;
     Json::Value root;
+
+    iLineNo++;
+    stringstream ssLineNo;
+    string strLineNo;
+    ssLineNo<<iLineNo;
+
+    if (lineNo == "1") {
+        strLineNo = "1";
+    } else if (lineNo == "0") {
+        ssLineNo>>strLineNo;
+    } else {
+        strLineNo = lineNo;
+    }
+
     root["ext_toolno"] = toolNo;
     root["cnc_rdprgnum[1]"] = programName;
     root["jobCounteByStatus"] = jobCountByStatus;
@@ -92,6 +181,7 @@ string set2011(string toolNo,string programName,
     root["programStartTime"] = startTime;
     root["programEndTime"] = endTime;
     root["pmc_rdpmcrng[1,1,1,1]"] = "640";
+    root["cnc_rdseqnum"] = strLineNo;
     string tmpStr = root.toStyledString();
     rootBase["type"] = "2211";
     rootBase["val"] = tmpStr;
@@ -100,11 +190,13 @@ string set2011(string toolNo,string programName,
     return retData;
 }
 
+
+
 void write2010() {
     while (1) {
         cout<<"2010 thread:"<<this_thread::get_id()<<endl;
         Json::Value root;
-        this_thread::sleep_for(chrono::milliseconds(20));
+        this_thread::sleep_for(chrono::milliseconds(50));
         cout<<set2010()<<endl;
 
         string store2010 = "";
@@ -117,13 +209,13 @@ void write2010() {
 }
 
 void write2011() {
-    string tmp2011 = set2011(toolNo,programName,"false","1",strStartTime,strEndTime,"0");
+    string tmp2011 = set2011(toolNo,programName,"false","1",strStartTime,strEndTime,mainLineNo);
     redisClient.HSet(machineID,"2211",tmp2011);
     while (1) {
         cout<<"2011 thread:"<<this_thread::get_id()<<endl;
         this_thread::sleep_for(chrono::milliseconds(500));
 
-        string tmpData = set2011(toolNo,programName,"false","1",strStartTime,strEndTime,"0");
+        string tmpData = set2011(toolNo,programName,"false","1",strStartTime,strEndTime,mainLineNo);
         cout<<tmpData<<endl;
 
         string store2011 = "";
@@ -238,6 +330,8 @@ int main(int argc,char *argv[]) {
         strOrder = argv[1];
     }
 
+    writeFileName = "/tmp/redisOrigin_" + getSysTime() + ".txt";
+
     if (strOrder == "2210") {
         set2010Order = "2210";
         if (argc > 2) {
@@ -265,7 +359,10 @@ int main(int argc,char *argv[]) {
             programName = argv[5];
         }
         if (argc > 6) {
-            machineID = argv[6];
+            mainLineNo = argv[6];
+        }
+        if (argc > 7) {
+            machineID = argv[7];
         }
 
     } else {
